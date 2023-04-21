@@ -1,22 +1,68 @@
+import customtkinter as cTk
+from tkcalendar import Calendar
+import datetime
 from itertools import chain
 import requests
 import geopy
 from matplotlib import pyplot as plt
 import numpy as np
 
-address = "9111 116"
+forecast = {}
 
-locator = geopy.Nominatim(user_agent="myGeocoder")
+def graph_data(forecast):
+    hours = [t[-5:-3] for t in forecast["hourly"]["time"]]
+    _, axes = plt.subplots(3,6)
+
+    si = 0
+    for axis in list(chain.from_iterable(zip(*axes))):
+        sn = si+23
+        axis.plot(hours[si:sn], forecast['hourly']['cloudcover_high'][si:sn], color="g")
+        axis.plot(hours[si:sn], forecast['hourly']['cloudcover_mid'][si:sn], color="y")
+        axis.plot(hours[si:sn], forecast['hourly']['cloudcover_low'][si:sn], color="r")
+        axis.plot(hours[si:sn], forecast['hourly']['cloudcover'][si:sn], color="b")
+        si = si
+    plt.show()
+
+def _get_latlong():
+    global forecast
+    street = input_addr.get().split(',')[0]
+    city = input_addr.get().split(',')[1]
+
+    location = geopy.Nominatim(user_agent="myGeocoder").geocode({"street": street, "city": city})
+    res = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={location.latitude}&longitude={location.longitude}&current_weather=false&forecast_days=16&hourly=cloudcover,cloudcover_low,cloudcover_mid,cloudcover_high,dewpoint_2m")
+    
+    day_forecast = [t for t in res["hourly"] if t == input_date.get_date()]
+
+    print(day_forecast)
+    
+    forecast = res.json()
+
+
+root = cTk.CTk()
+root.geometry("500x500")
+
+input_addr = cTk.CTkEntry(root, placeholder_text="<house number> <street number>, <city>", width=100)
+input_addr.pack()
+
+button_get_forecast = cTk.CTkButton(root, text="Get forecast", command=_get_latlong)
+button_get_forecast.pack()
+
+input_date = Calendar(root, maxdate = datetime.date.today() + datetime.timedelta(16), mindate=datetime.date.today())
+input_date.pack()
+
+button_graph = cTk.CTkButton(root, text="Show Cloud Graph", command=lambda: graph_data(forecast))
+button_graph.pack()
+
+print(forecast)
+root.mainloop()
+
+
+
 # locator.geocode({"street":address, 'state': "british columbia", "country": "canada"})
 # print(locator.geocode(address).latitude)c
 
 # loc = locator.geocode(query={"street":'501 Belleville', 'city': 'victoria', 'postcode': 'V8V 2L8' , 'state': "british columbia", "country": "canada"})
 
-res = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude=49.169335&longitude=-122.901486&current_weather=false&hourly=cloudcover,cloudcover_low,cloudcover_mid,cloudcover_high,dewpoint_2m")
-
-forecast = res.json()
-
-hours = [t[-5:-3] for t in forecast["hourly"]["time"]]
 
 _, axes = plt.subplots(nrows=2, ncols=3)
 _, axes2 = plt.subplots(nrows=2, ncols=3)
@@ -25,14 +71,6 @@ print(hours)
 
 x = np.zeros(len(forecast["hourly"]["time"]))
 
-si = 0
-for axis in list(chain.from_iterable(zip(*axes2))):
-    sn = si+23
-    axis.plot(hours[si:sn], forecast['hourly']['cloudcover_high'][si:sn], color="g")
-    axis.plot(hours[si:sn], forecast['hourly']['cloudcover_mid'][si:sn], color="y")
-    axis.plot(hours[si:sn], forecast['hourly']['cloudcover_low'][si:sn], color="r")
-    axis.plot(hours[si:sn], forecast['hourly']['cloudcover'][si:sn], color="b")
-    si = sn
 
 # axes[0,0].plot(hours[:22], forecast['hourly']['cloudcover'][:22])
 # axes[0,0].plot(hours[:22], forecast['hourly']['cloudcover_low'][:22])
@@ -69,5 +107,5 @@ for axis in list(chain.from_iterable(zip(*axes2))):
 for i, t in enumerate(forecast["hourly"]["time"]):
     print(f"Time: {t}, forecast: {forecast['hourly']['cloudcover'][i]}")
 
-plt.show()
+# plt.show()
 print(res.json())
